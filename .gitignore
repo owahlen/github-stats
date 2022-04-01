@@ -1,0 +1,8 @@
+# Config file
+github.ini
+
+# Python
+__pycache__/
+
+# IDE
+.idea/
