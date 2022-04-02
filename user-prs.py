@@ -1,22 +1,19 @@
 import configparser
-import pprint
+import json
+from datetime import date
+from pprint import pprint
 
 import requests
-
-config = configparser.ConfigParser()
-config.read('github.ini')
-
-token = config['GITHUB']['PersonalAccessToken']
-org = config['GITHUB']['Organization']
+from dateutil.relativedelta import relativedelta
 
 
-def batch(iterable, n=1):
-    l = len(iterable)
-    for ndx in range(0, l, n):
-        yield iterable[ndx:min(ndx + n, l)]
+def getGithubConfig(config_file):
+    config = configparser.ConfigParser()
+    config.read(config_file)
+    return config['GITHUB']
 
 
-def makeCall(query):
+def makeCall(query, token):
     response = requests.post("https://api.github.com/graphql",
                              headers={
                                  "Authorization": f"Bearer {token}"
@@ -28,13 +25,13 @@ def makeCall(query):
     json = response.json()
     if 'errors' in json:
         print("Github response contains errors:")
-        pprint.pprint(json['errors'])
+        pprint(json['errors'])
         exit(-1)
     else:
         return json["data"]
 
 
-def getOrgMembers(org):
+def getOrgMembers(org, token):
     userQuery = """
     { 
       organization(login: "%s") {
@@ -55,7 +52,7 @@ def getOrgMembers(org):
     membersWithRoleArgs = "first: 100"
     hasNextPage = True
     while hasNextPage:
-        page = makeCall(userQuery % (org, membersWithRoleArgs))
+        page = makeCall(userQuery % (org, membersWithRoleArgs), token)
         nodes.extend(page["organization"]["membersWithRole"]["nodes"])
         hasNextPage = page["organization"]["membersWithRole"]["pageInfo"]["hasNextPage"]
         endCursor = page["organization"]["membersWithRole"]["pageInfo"]["endCursor"]
@@ -63,32 +60,33 @@ def getOrgMembers(org):
     return nodes
 
 
-def getPrCountDict(org, users):
+def getUserPrHistory(org, users, token, n_months=12):
     pullRequestQuery = """
-    %s: search(query: "org:%s author:%s type:pr is:merged created:>=2022-03-01 created:<2022-04-01", type: ISSUE) {
+    %s: search(query: "org:%s author:%s type:pr is:merged merged:%s..%s", type: ISSUE) {
       issueCount
     } 
     """
-    keyDict = {}
+    user_pr_history = {}
+    thisMonth = date.today().replace(day=1)
+    month_starts = [thisMonth + relativedelta(months=i - n_months + 1) for i in range(0, n_months + 1)]
+    print("Start analyzing users:")
     for idx, user in enumerate(users):
-        keyDict[f"user{idx}"] = user["login"]
-
-    keys = list(keyDict.keys())
-    for keyBatch in batch(keys, 10):
+        print("%s (%d/%d)" % (user["login"], idx + 1, len(users)))
         composedQuery = "".join([
-            pullRequestQuery % (t, org, keyDict[t])
-            for t in keyBatch
+            pullRequestQuery % (month_starts[i].strftime("_%Y_%m_%d"), org, user["login"], str(month_starts[i]),
+                                str(month_starts[i + 1] + relativedelta(days=-1)))
+            for i in range(0, n_months)
         ])
-        result = makeCall("{%s}" % composedQuery)
-        print(result)
+        monthly_prs = makeCall("{%s}" % composedQuery, token)
+        user_pr_history[user["login"]] = [monthly_prs[month_starts[i].strftime("_%Y_%m_%d")]["issueCount"] for i in
+                                          range(0, n_months)]
+    return user_pr_history
 
 
-users = getOrgMembers(org)
-prCounts = getPrCountDict(org, users)
-
-# match the original user login
-# stats = {}
-# for it in result.keys():
-#     stats[keyList[it]] = result[it]["issueCount"]
-#
-# print(stats)
+config = getGithubConfig('github.ini')
+pat = config['PersonalAccessToken']
+org = config['Organization']
+users = getOrgMembers(org, pat)
+user_pr_history = getUserPrHistory(org, users, pat, 12)
+with open('user-prs.json', 'w') as fp:
+    json.dump(user_pr_history, fp)
