@@ -7,5 +7,8 @@ github.ini
 # Python
 __pycache__/
 
+# Excel
+*.xlsx
+
 # IDE
 .idea/
