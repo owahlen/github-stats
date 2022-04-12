@@ -1,8 +1,5 @@
 import json
-import numpy as np
-import matplotlib.pyplot as plt
 
-import openpyxl
 import pandas as pd
 
 with open('user-prs.json', 'r') as f:
@@ -11,7 +8,7 @@ with open('user-prs.json', 'r') as f:
 flattened_data = []
 for d in data:
     new_record = {
-        "saml_email":d["saml_email"]
+        "saml_email": d["saml_email"]
     }
     for m in d["pr_history"]:
         new_record[m["month"]] = m["n_merged"]
