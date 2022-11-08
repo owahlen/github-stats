@@ -11,6 +11,11 @@ The scripts read the configuration file `github.ini`.
 It contains this token and the name of the organization.
 The file `github.ini.example` can be used as reference to understand the syntax.
 
+The python environment should be setup with the command
+```
+$ pip install -r requirements.txt
+```
+
 ## create-user-prs.py
 This script fetches all users that are part of the organization and that were authenticated via SAML.
 For each user it counts the number of pull requests in each of the last 12 months
