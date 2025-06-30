@@ -1,37 +1,10 @@
-import configparser
 import json
 from datetime import date
-from pprint import pprint
 
-import requests
 from dateutil.relativedelta import relativedelta
 
-def get_github_config(config_file):
-    parser = configparser.ConfigParser()
-    parser.read(config_file)
-    return parser['GITHUB']
+from github_utils import get_github_config, make_call
 
-def make_call(query, token):
-    response = requests.post("https://api.github.com/graphql",
-                             headers={
-                                 "Authorization": f"Bearer {token}"
-                             },
-                             json={
-                                 "query": query
-                             }
-                             )
-    response_json = response.json()
-    if 'errors' in response_json:
-        print("GitHub response contains errors:")
-        pprint(response_json['errors'])
-        exit(-1)
-
-    if "data" not in response_json:
-        print("Unexpected GitHub API response:")
-        pprint(response_json)  # Print the full response for debugging
-        exit(-1)
-
-    return response_json["data"]
 
 def get_org_members(org_name, token):
     identity_query = """
@@ -73,6 +46,7 @@ def get_org_members(org_name, token):
     filtered_nodes.sort(key=lambda node: node["samlIdentity"]["nameId"])
     return filtered_nodes
 
+
 def get_user_pr_history(org_name, member_identities, token, n_months=12):
     pull_request_query = """
     %s: search(query: "org:%s author:%s type:pr is:merged merged:%s..%s", type: ISSUE) {
@@ -89,7 +63,7 @@ def get_user_pr_history(org_name, member_identities, token, n_months=12):
         print("%s (%d/%d)" % (saml_email, idx + 1, len(member_identities)))
         composed_query = "".join([
             pull_request_query % (month_starts[i].strftime("_%Y_%m_%d"), org_name, github_login, str(month_starts[i]),
-                                str(month_starts[i + 1] + relativedelta(days=-1)))
+                                  str(month_starts[i + 1] + relativedelta(days=-1)))
             for i in range(0, n_months)
         ])
         monthly_prs = make_call("{" + composed_query + "}", token)
@@ -102,6 +76,7 @@ def get_user_pr_history(org_name, member_identities, token, n_months=12):
             } for i in range(0, n_months)]
         })
     return pr_history_data
+
 
 config = get_github_config('github.ini')
 pat = config['PersonalAccessToken']

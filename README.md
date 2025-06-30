@@ -21,6 +21,10 @@ This script fetches all users that are part of the organization and that were au
 For each user it counts the number of pull requests in each of the last 12 months
 and writes the result into the file `user-prs.json`.
 
+## create-commits.py
+This script fetches the metadata of all commits from all users in all repos.
+The result is written into the file `commits.json`.
+
 ## prs2xlsx.py
 This script reads the file `user-prs.json` and converts it into an Excel spreadsheet
 called `prs.xlsx`.

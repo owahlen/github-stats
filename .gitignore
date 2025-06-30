@@ -1,5 +1,6 @@
 # Output files
 user-prs.json
+commits.json
 
 # Config file
 github.ini
